@@ -10,8 +10,10 @@ github：https://github.com/gonigh/wenfan-ifood/tree/main
 
 - 🎯 **智能菜单推荐**：根据人数推荐完整菜单，均衡搭配荤素
 - 📖 **菜谱详情查询**：查询任意菜品的详细做法、食材配料和制作步骤
+- 🔍 **联网实时搜索**：本地找不到菜品时，自动联网搜索并整理最新做法
+- 📥 **自定义菜谱库**：保存联网搜索的菜品，或添加自己的独家配方
 - 🤖 **自然对话交互**：使用 DeepSeek Function Calling 实现智能意图识别
-- 💾 **丰富菜谱数据**：内置超过 3000+ 道菜的完整数据库
+- 💾 **丰富菜谱数据**：内置超过 3000+ 道菜的完整数据库，可扩展
 - 🎨 **动态滚动背景**：6 行可点击的美食滚动展示，增强视觉体验
 - 🃏 **美观卡片展示**：菜单以精美卡片形式呈现，支持查看详情
 
@@ -29,18 +31,23 @@ github：https://github.com/gonigh/wenfan-ifood/tree/main
 ```
 用户输入 → DeepSeek API 分析意图 → Function Calling
                                         ↓
-                    ┌───────────────────┴────────────────────┐
-                    ↓                                        ↓
-              getMenu (菜单推荐)                    getRecipe (菜谱查询)
-                    ↓                                        ↓
-            从菜谱库随机选择                        精确匹配菜品名称
-         考虑荤素搭配 + 难度                        返回完整做法
-                    ↓                                        ↓
-                返回菜单数据                           返回菜谱详情
-                    ↓                                        ↓
-            MenuCard 组件渲染                     RecipeDetail 组件渲染
-                    ↓                                        ↓
-                  卡片展示                              详情页展示
+        ┌───────────────────────────────┴────────────────────────────┐
+        ↓                               ↓                             ↓
+  getMenu (菜单推荐)          getRecipe (菜谱查询)          addRecipe (添加菜谱)
+        ↓                               ↓                             ↓
+  从菜谱库随机选择                 精确匹配菜品名称                保存到本地存储
+  考虑荤素搭配 + 难度                     ↓                      (localStorage)
+        ↓                        ┌──────┴──────┐
+    返回菜单数据                  ↓              ↓
+        ↓                      找到          未找到
+  MenuCard 组件渲染               ↓              ↓
+        ↓                    返回菜谱       联网搜索 🔍
+      卡片展示                   ↓         (Web Search)
+                                 ↓              ↓
+                        RecipeDetail       AI 整理做法
+                           组件渲染            ↓
+                                 ↓         显示详情 + 
+                             详情页展示    "加入菜品库"按钮
 ```
 
 ## 🚀 使用指南
@@ -71,7 +78,19 @@ github：https://github.com/gonigh/wenfan-ifood/tree/main
    - 点击菜单卡片的"查看做法"按钮
    - 点击背景滚动的菜品
 
-3. **自然对话**
+3. **联网搜索新菜品** 🆕
+   - 输入："冰粉怎么做？"（本地没有时自动联网搜索）
+   - 输入："油泼辣子的做法"
+   - AI 会自动联网搜索并整理做法
+   - 可点击"加入菜品库"保存到本地
+
+4. **添加自定义菜谱** 🆕
+   - 输入："帮我添加一道菜：我的秘制红烧肉..."
+   - 提供菜品名称、食材、步骤等信息
+   - AI 会自动整理并保存到本地
+   - 下次查询时可直接使用
+
+5. **自然对话**
    - "有什么简单的家常菜？"
    - "推荐几道川菜"
    - "有什么适合新手的菜？"
@@ -80,15 +99,16 @@ github：https://github.com/gonigh/wenfan-ifood/tree/main
 
 ```
 wenfan/
+├── index.html              # 主页面
 ├── src/
-│   ├── index.html           # 主页面
-│   ├── style.css            # 样式表（美食主题配色）
-│   ├── app.js              # 主应用逻辑
-│   ├── tools.js            # 工具函数（菜谱查询）
+│   ├── app.js              # 核心应用逻辑 (379行)
+│   ├── helpers.js          # 辅助函数模块 🆕
+│   ├── tools.js            # AI 工具函数（菜谱 CRUD）
 │   ├── menu-card.js        # 菜单卡片组件
 │   ├── recipe-detail.js    # 菜品详情组件
 │   ├── background.js       # 滚动背景管理
-│   └── recipes-data.js     # 菜谱数据库（3000+ 菜品）
+│   ├── recipes-data.js     # 菜谱数据库（3000+ 菜品）
+│   └── style.css           # 样式表（美食主题配色）
 └── README.md
 ```
 
@@ -96,24 +116,36 @@ wenfan/
 
 ### 1. Tools 模块 (`tools.js`)
 
-提供两个核心工具函数供 AI 调用：
+提供三个核心工具函数供 AI 调用：
 
-#### `getMenu(peopleCount, preferences)`
+#### `getMenu(peopleCount)`
 **功能**：智能推荐菜单
-- **参数**：
-  - `peopleCount`: 用餐人数（1-10）
-  - `preferences`: 偏好设置（可选）
+- **参数**：`peopleCount` - 用餐人数（1-20）
 - **返回**：包含多道菜的菜单数据
 - **逻辑**：
   - 根据人数计算菜品数量
-  - 荤素搭配（60% 荤菜 40% 素菜）
-  - 难度适中优先
+  - 荤素搭配（人数÷2 向上取整）
+  - 8人以上额外添加鱼类
+  - 随机化肉类优先级增加多样性
 
 #### `getRecipe(dishName)`
 **功能**：查询菜谱详情
 - **参数**：`dishName` - 菜品名称
 - **返回**：完整菜谱数据或错误信息
-- **逻辑**：模糊匹配菜品名称
+- **逻辑**：
+  - 精确匹配 ID 和名称
+  - 模糊匹配（支持去掉"的做法"）
+  - 本地找不到时返回错误，触发联网搜索
+
+#### `addRecipe(recipeData)` 🆕
+**功能**：添加自定义菜谱
+- **参数**：`recipeData` - 菜品完整数据对象
+- **返回**：操作成功或失败信息
+- **逻辑**：
+  - 验证必需字段（名称、分类）
+  - 生成唯一 ID
+  - 保存到 localStorage
+  - 同名菜品自动更新
 
 ### 2. MenuCard 组件 (`menu-card.js`)
 
@@ -138,42 +170,84 @@ wenfan/
 - 根据分类智能匹配 emoji
 - 点击触发菜谱查询
 
+### 5. Helpers 模块 (`helpers.js`) 🆕
+
+**功能**：辅助函数集合，优化代码结构
+
+#### `searchRecipeOnline(dishName, messageId, apiKey, updateMessageFn, addMessageFn)`
+- **功能**：联网搜索菜品做法
+- **流程**：
+  1. 调用 DeepSeek API 启用 `web_search`
+  2. AI 联网搜索并按 JSON 格式整理
+  3. 渲染菜品详情组件
+  4. 添加"加入菜品库"按钮
+
+#### `generateSuggestionsWithAI(conversationHistory, apiKey)`
+- **功能**：AI 生成智能后续问题建议
+- **逻辑**：根据对话历史生成 3-4 个相关问题
+
+#### `showSuggestions(questions, sendMessageFn)`
+- **功能**：在 UI 中显示建议问题按钮
+
+#### `handleViewRecipe(dishName, sendMessageFn)`
+- **功能**：处理查看菜谱逻辑
+- **逻辑**：本地查找 → 显示详情或触发 AI 查询
+
+#### `bindSuggestionButtons(sendMessageFn)`
+- **功能**：绑定建议按钮点击事件
+
 
 ## 🛠️ 开发扩展
 
-### 添加新菜品
+### 方式一：通过 AI 对话添加 🆕 推荐
+
+直接在对话中告诉 AI：
+
+```
+"帮我添加一道菜：我的秘制红烧肉
+食材：五花肉500克，冰糖30克...
+步骤：1. 五花肉切块焯水..."
+```
+
+AI 会自动：
+- 整理成标准格式
+- 调用 `addRecipe` 工具
+- 保存到浏览器本地存储
+- 可随时查询和使用
+
+### 方式二：手动编辑数据文件
 
 编辑 `src/recipes-data.js`，按照以下格式添加：
 
 ```javascript
 {
+  "id": "custom-xxx",
   "name": "菜品名称的做法",
-  "category": "分类（主食/荤菜/素菜/汤/水产/甜品等）",
+  "category": "分类（主食/荤菜/素菜/汤羹/水产/甜品等）",
   "difficulty": 3,  // 1-5 星
   "description": "菜品描述",
   "ingredients": [
     {
       "name": "食材名",
-      "quantity": 100,
-      "unit": "克",
-      "text_quantity": "- 食材名 100克"
+      "text_quantity": "100克"
     }
   ],
   "steps": [
     {
       "step": 1,
-      "description": "步骤描述",
-      "duration_minutes": 5
+      "description": "步骤描述"
     }
-  ]
+  ],
+  "prep_time_minutes": 10,
+  "cook_time_minutes": 20
 }
 ```
 
+### 数据存储说明
 
-## 📝 待办事项
-
-- [ ] 添加菜谱搜索过滤
-- [ ] 支持用户上传菜谱
+- **内置菜谱**：存储在 `recipes-data.js` 文件中
+- **自定义菜谱**：存储在浏览器 `localStorage` 中
+- **合并策略**：启动时自动合并，自定义菜谱优先显示
 
 ## 📄 许可证
 
