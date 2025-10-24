@@ -41,20 +41,27 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // 调用DeepSeek API（流式）
-    async function callDeepSeekStream(messages, onChunk, onToolCall) {
+    async function callDeepSeekStream(messages, onChunk, onToolCall, options = {}) {
+        const requestBody = {
+            model: 'deepseek-chat',
+            messages: messages,
+            tools: options.disableTools ? undefined : RecipeTools.toolsDefinition,
+            temperature: 0.7,
+            stream: true
+        };
+        
+        // 如果需要联网搜索，添加web_search参数
+        if (options.webSearch) {
+            requestBody.web_search = true;
+        }
+        
         const response = await fetch(DEEPSEEK_API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`
             },
-            body: JSON.stringify({
-                model: 'deepseek-chat',
-                messages: messages,
-                tools: RecipeTools.toolsDefinition,
-                temperature: 0.7,
-                stream: true
-            })
+            body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {
@@ -184,6 +191,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 // 执行所有工具调用，并检查是否有特殊数据需要渲染
                 let menuResult = null;
                 let recipeResult = null;
+                let recipeNotFound = null;
                 for (const toolCall of toolCallsToExecute) {
                     const functionName = toolCall.function.name;
                     const functionArgs = JSON.parse(toolCall.function.arguments);
@@ -197,6 +205,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     // 如果是getRecipe工具且成功找到菜谱，保存结果用于详情组件渲染
                     if (functionName === 'getRecipe' && functionResult.success && functionResult.recipe) {
                         recipeResult = functionResult.recipe;
+                    }
+                    
+                    // 如果是getRecipe工具但未找到菜谱，记录菜品名称用于联网搜索
+                    if (functionName === 'getRecipe' && functionResult.error) {
+                        recipeNotFound = functionArgs.dishName;
                     }
 
                     conversationHistory.push({
@@ -221,6 +234,38 @@ document.addEventListener('DOMContentLoaded', function () {
                         content: `已为用户显示了《${recipeResult.name}》的详细做法。`
                     });
                 } 
+                // 如果需要联网搜索菜品做法
+                else if (recipeNotFound) {
+                    // 调用AI联网搜索并总结菜品做法
+                    const searchedRecipe = await AppHelpers.searchRecipeOnline(
+                        recipeNotFound, 
+                        botMessageId, 
+                        apiKey, 
+                        updateMessage, 
+                        addMessage
+                    );
+                    
+                    if (searchedRecipe) {
+                        // 添加助手回答到历史
+                        conversationHistory.push({
+                            role: 'assistant',
+                            content: `已通过联网搜索找到《${searchedRecipe.name}》的做法并展示给用户。`
+                        });
+                    } else {
+                        // 搜索失败，显示常规AI回答
+                        const finalResult = await callDeepSeekStream(
+                            conversationHistory,
+                            (content) => {
+                                updateMessage(botMessageId, content);
+                            },
+                            () => { }
+                        );
+                        conversationHistory.push({
+                            role: 'assistant',
+                            content: finalResult.content
+                        });
+                    }
+                }
                 // 如果有菜单数据，直接显示卡片
                 else if (menuResult) {
                     updateMessage(botMessageId, '', menuResult);
@@ -248,8 +293,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
 
                 // 通过AI生成并显示后续问题建议
-                const followUpQuestions = await generateSuggestionsWithAI();
-                showSuggestions(followUpQuestions);
+                const followUpQuestions = await AppHelpers.generateSuggestionsWithAI(conversationHistory, apiKey);
+                AppHelpers.showSuggestions(followUpQuestions, sendMessage);
             } else {
                 // 没有工具调用，内容已在流式过程中显示
                 // 只需添加回答到历史
@@ -259,8 +304,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
 
                 // 通过AI生成并显示后续问题建议
-                const followUpQuestions = await generateSuggestionsWithAI();
-                showSuggestions(followUpQuestions);
+                const followUpQuestions = await AppHelpers.generateSuggestionsWithAI(conversationHistory, apiKey);
+                AppHelpers.showSuggestions(followUpQuestions, sendMessage);
             }
 
         } catch (error) {
@@ -335,137 +380,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // 处理查看菜谱
-    function handleViewRecipe(dishName) {
-        // 从菜谱数据中查找菜品
-        const recipe = window.recipesData.find(r => 
-            r.name === dishName || 
-            r.name.includes(dishName) || 
-            dishName.includes(r.name.replace('的做法', ''))
-        );
-
-        if (recipe) {
-            // 找到菜品数据，直接显示详情组件
-            const messageId = 'recipe-detail-' + Date.now();
-            const chatArea = document.getElementById('chatArea');
-            
-            // 移除欢迎消息
-            const welcome = chatArea.querySelector('.welcome-msg');
-            if (welcome) welcome.remove();
-            
-            // 创建消息容器
-            const msgDiv = document.createElement('div');
-            msgDiv.className = 'message bot';
-            msgDiv.id = messageId;
-            
-            const contentDiv = document.createElement('div');
-            contentDiv.className = 'message-content';
-            contentDiv.id = messageId + '-content';
-            
-            msgDiv.appendChild(contentDiv);
-            chatArea.appendChild(msgDiv);
-            
-            // 渲染菜品详情
-            RecipeDetail.render(recipe, contentDiv.id);
-            
-            // // 滚动到底部
-            // chatArea.scrollTop = chatArea.scrollHeight;
-        } else {
-            // 未找到菜品数据，使用AI回答
-            const input = document.getElementById('userInput');
-            input.value = `${dishName}怎么做？`;
-            sendMessage();
-        }
-    }
-    
     // 暴露到全局供背景脚本使用
-    window.handleViewRecipe = handleViewRecipe;
+    window.handleViewRecipe = (dishName) => AppHelpers.handleViewRecipe(dishName, sendMessage);
 
-    // 显示建议问题
-    function showSuggestions(questions) {
-        const chatArea = document.getElementById('chatArea');
-
-        // 移除之前的建议
-        const oldSuggestions = chatArea.querySelector('.suggestions');
-        if (oldSuggestions && !oldSuggestions.closest('.welcome-msg')) {
-            oldSuggestions.remove();
-        }
-
-        const suggestionsDiv = document.createElement('div');
-        suggestionsDiv.className = 'suggestions';
-        suggestionsDiv.style.margin = '20px auto';
-        suggestionsDiv.style.maxWidth = '400px';
-
-        questions.forEach(question => {
-            const btn = document.createElement('button');
-            btn.className = 'suggestion-btn';
-            btn.textContent = question;
-            btn.onclick = () => {
-                document.getElementById('userInput').value = question;
-                sendMessage();
-            };
-            suggestionsDiv.appendChild(btn);
-        });
-
-        chatArea.appendChild(suggestionsDiv);
-    }
-
-    // 通过AI生成后续问题建议
-    async function generateSuggestionsWithAI() {
-        try {
-            // 构建生成建议的提示
-            const suggestionMessages = [
-                ...conversationHistory,
-                {
-                    role: 'user',
-                    content: '请根据我们的对话，生成3-4个我可能会问的后续问题。要求：\n1. 每个问题独立一行\n2. 不要编号\n3. 问题要简短（10字以内）\n4. 问题要与当前对话相关\n5. 只输出问题，不要其他内容\n\n例如：\n今天吃什么？\n麻婆豆腐怎么做？\n推荐2人的菜单'
-                }
-            ];
-
-            const response = await fetch(DEEPSEEK_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: 'deepseek-chat',
-                    messages: suggestionMessages,
-                    temperature: 0.8,
-                    max_tokens: 200
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error('生成建议失败');
-            }
-
-            const data = await response.json();
-            const content = data.choices[0].message.content;
-
-            // 解析返回的问题列表
-            const questions = content
-                .split('\n')
-                .map(q => q.trim())
-                .filter(q => q && !q.match(/^[\d\.\-\*]+/) && q.length > 2 && q.length < 30)
-                .slice(0, 4);
-
-            return questions.length > 0 ? questions : getDefaultSuggestions();
-        } catch (error) {
-            console.error('AI生成建议失败:', error);
-            return getDefaultSuggestions();
-        }
-    }
-
-    // 获取默认建议（作为后备）
-    function getDefaultSuggestions() {
-        const defaults = [
-            ['今天吃什么？', '推荐一份4人的菜单', '麻婆豆腐怎么做？', '有什么快手菜？'],
-            ['推荐家常菜', '宫保鸡丁的做法', '有什么凉菜？', '推荐2人菜单'],
-            ['今天吃什么？', '有什么汤可以做？', '西红柿炒鸡蛋怎么做？', '推荐素菜']
-        ];
-        return defaults[Math.floor(Math.random() * defaults.length)];
-    }
 
     // 切换设置面板
     function toggleSettings() {
@@ -501,21 +418,10 @@ document.addEventListener('DOMContentLoaded', function () {
         apiKey = newKey;
     });
 
-    // 绑定初始建议按钮的点击事件
-    function bindSuggestionButtons() {
-        const suggestionButtons = document.querySelectorAll('.suggestion-btn');
-        suggestionButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.getElementById('userInput').value = btn.textContent;
-                sendMessage();
-            });
-        });
-    }
-
     // 绑定事件监听器
     document.getElementById('settingsBtn').addEventListener('click', toggleSettings);
     document.getElementById('sendBtn').addEventListener('click', sendMessage);
     document.getElementById('userInput').addEventListener('keypress', handleKeyPress);
-    bindSuggestionButtons();
+    AppHelpers.bindSuggestionButtons(sendMessage);
 
 }); // DOMContentLoaded 结束

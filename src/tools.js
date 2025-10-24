@@ -1,9 +1,43 @@
 // 菜谱工具模块
 const RecipeTools = (function() {
     let recipes = [];
+    const LOCAL_STORAGE_KEY = 'custom_recipes';
 
     /**
-     * 初始化菜谱数据
+     * 从localStorage加载自定义菜谱
+     */
+    function loadCustomRecipes() {
+        try {
+            const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (stored) {
+                const customRecipes = JSON.parse(stored);
+                if (Array.isArray(customRecipes)) {
+                    console.log(`RecipeTools: 从本地加载 ${customRecipes.length} 道自定义菜谱`);
+                    return customRecipes;
+                }
+            }
+        } catch (error) {
+            console.error('RecipeTools: 加载自定义菜谱失败', error);
+        }
+        return [];
+    }
+
+    /**
+     * 保存自定义菜谱到localStorage
+     */
+    function saveCustomRecipes(customRecipes) {
+        try {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(customRecipes));
+            console.log(`RecipeTools: 已保存 ${customRecipes.length} 道自定义菜谱到本地`);
+            return true;
+        } catch (error) {
+            console.error('RecipeTools: 保存自定义菜谱失败', error);
+            return false;
+        }
+    }
+
+    /**
+     * 初始化菜谱数据（合并文件数据和本地数据）
      * @param {Array} recipesData - 菜谱数据数组
      */
     function initRecipes(recipesData) {
@@ -11,8 +45,14 @@ const RecipeTools = (function() {
             console.error('RecipeTools.initRecipes: 数据必须是数组');
             return;
         }
-        recipes = recipesData;
-        console.log(`RecipeTools: 已加载 ${recipes.length} 道菜谱`);
+        
+        // 加载自定义菜谱
+        const customRecipes = loadCustomRecipes();
+        
+        // 合并数据：自定义菜谱放在前面
+        recipes = [...customRecipes, ...recipesData];
+        
+        console.log(`RecipeTools: 已加载 ${recipes.length} 道菜谱（${customRecipes.length} 道自定义 + ${recipesData.length} 道预设）`);
     }
 
     /**
@@ -260,11 +300,109 @@ const RecipeTools = (function() {
     }
 
     /**
+     * 新增菜品
+     * @param {Object} recipeData - 菜品数据
+     * @returns {Object} 操作结果
+     */
+    function addRecipe(recipeData) {
+        // 参数验证
+        if (!recipeData || typeof recipeData !== 'object') {
+            return {
+                success: false,
+                error: '菜品数据格式错误'
+            };
+        }
+
+        // 必需字段验证
+        if (!recipeData.name || typeof recipeData.name !== 'string' || recipeData.name.trim() === '') {
+            return {
+                success: false,
+                error: '菜品名称不能为空'
+            };
+        }
+
+        if (!recipeData.category || typeof recipeData.category !== 'string') {
+            return {
+                success: false,
+                error: '菜品分类不能为空'
+            };
+        }
+
+        // 生成唯一ID
+        const timestamp = Date.now();
+        const id = `custom-${timestamp}-${recipeData.name.replace(/\s+/g, '-')}`;
+
+        // 构建完整的菜品对象
+        const newRecipe = {
+            id: id,
+            name: recipeData.name,
+            description: recipeData.description || '',
+            source_path: `custom/${id}.md`,
+            image_path: recipeData.image_path || null,
+            images: recipeData.images || [],
+            category: recipeData.category,
+            difficulty: recipeData.difficulty || 3,
+            tags: recipeData.tags || [recipeData.category],
+            servings: recipeData.servings || 1,
+            ingredients: recipeData.ingredients || [],
+            steps: recipeData.steps || [],
+            prep_time_minutes: recipeData.prep_time_minutes || null,
+            cook_time_minutes: recipeData.cook_time_minutes || null,
+            total_time_minutes: recipeData.total_time_minutes || null,
+            additional_notes: recipeData.additional_notes || [],
+            custom: true, // 标记为自定义菜谱
+            created_at: new Date().toISOString()
+        };
+
+        // 加载现有的自定义菜谱
+        const customRecipes = loadCustomRecipes();
+
+        // 检查是否已存在同名菜品
+        const existingIndex = customRecipes.findIndex(r => r.name === newRecipe.name);
+        if (existingIndex !== -1) {
+            // 更新现有菜品
+            customRecipes[existingIndex] = newRecipe;
+            console.log(`RecipeTools: 更新菜品 "${newRecipe.name}"`);
+        } else {
+            // 添加新菜品
+            customRecipes.unshift(newRecipe); // 添加到开头
+            console.log(`RecipeTools: 新增菜品 "${newRecipe.name}"`);
+        }
+
+        // 保存到localStorage
+        if (!saveCustomRecipes(customRecipes)) {
+            return {
+                success: false,
+                error: '保存菜品失败，请检查浏览器存储空间'
+            };
+        }
+
+        // 更新内存中的菜谱列表
+        if (existingIndex !== -1) {
+            // 查找并更新recipes中的对应项
+            const recipeIndex = recipes.findIndex(r => r.name === newRecipe.name);
+            if (recipeIndex !== -1) {
+                recipes[recipeIndex] = newRecipe;
+            }
+        } else {
+            // 添加到recipes开头
+            recipes.unshift(newRecipe);
+        }
+
+        return {
+            success: true,
+            message: existingIndex !== -1 ? `菜品"${newRecipe.name}"已更新` : `菜品"${newRecipe.name}"添加成功`,
+            recipe: newRecipe
+        };
+    }
+
+    /**
      * 执行工具函数
-     * @param {string} functionName - 函数名称：'getMenu' 或 'getRecipe'
+     * @param {string} functionName - 函数名称：'getMenu'、'getRecipe' 或 'addRecipe'
      * @param {Object} args - 函数参数
      * @param {number} [args.peopleCount] - getMenu 所需参数：用餐人数
      * @param {string} [args.dishName] - getRecipe 所需参数：菜品名称
+     * @param {Object} [args.recipeData] - addRecipe 所需参数：菜品数据
      * @returns {Object} 执行结果或错误信息
      */
     function executeTool(functionName, args) {
@@ -282,6 +420,8 @@ const RecipeTools = (function() {
             return getMenu(args.peopleCount || 4);
         } else if (functionName === 'getRecipe') {
             return getRecipe(args.dishName);
+        } else if (functionName === 'addRecipe') {
+            return addRecipe(args.recipeData);
         }
         
         console.error('RecipeTools.executeTool: 未知的工具函数', functionName);
@@ -322,6 +462,86 @@ const RecipeTools = (function() {
                     required: ['dishName']
                 }
             }
+        },
+        {
+            type: 'function',
+            function: {
+                name: 'addRecipe',
+                description: '立即添加用户自定义的菜品或饮品配方到菜谱库中，并保存到本地存储。当用户说"添加"、"保存"、"记录"、"添加到菜谱库"等词时，必须调用此工具执行实际操作，而不是只回复确认信息。用户可以保存自己的独家配方、改良菜谱或新学会的做法。',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        recipeData: {
+                            type: 'object',
+                            description: '菜品数据对象',
+                            properties: {
+                                name: {
+                                    type: 'string',
+                                    description: '菜品名称（必填），例如"我的秘制红烧肉"'
+                                },
+                                category: {
+                                    type: 'string',
+                                    description: '菜品分类（必填），如"荤菜"、"素菜"、"汤羹"、"主食"、"小吃"、"饮品"等'
+                                },
+                                description: {
+                                    type: 'string',
+                                    description: '菜品描述，可以包含菜品特色、口味、来源等信息'
+                                },
+                                difficulty: {
+                                    type: 'number',
+                                    description: '难度等级，1-5的整数，1最简单，5最难，默认为3'
+                                },
+                                servings: {
+                                    type: 'number',
+                                    description: '份数，默认为1'
+                                },
+                                ingredients: {
+                                    type: 'array',
+                                    description: '食材列表，每项包含name（名称）和text_quantity（用量描述）',
+                                    items: {
+                                        type: 'object',
+                                        properties: {
+                                            name: { type: 'string', description: '食材名称' },
+                                            text_quantity: { type: 'string', description: '用量描述，如"100克"、"适量"' }
+                                        }
+                                    }
+                                },
+                                steps: {
+                                    type: 'array',
+                                    description: '制作步骤列表，每项包含step（步骤序号）和description（步骤描述）',
+                                    items: {
+                                        type: 'object',
+                                        properties: {
+                                            step: { type: 'number', description: '步骤序号' },
+                                            description: { type: 'string', description: '步骤描述' }
+                                        }
+                                    }
+                                },
+                                prep_time_minutes: {
+                                    type: 'number',
+                                    description: '准备时间（分钟）'
+                                },
+                                cook_time_minutes: {
+                                    type: 'number',
+                                    description: '烹饪时间（分钟）'
+                                },
+                                additional_notes: {
+                                    type: 'array',
+                                    description: '小贴士或注意事项',
+                                    items: { type: 'string' }
+                                },
+                                tags: {
+                                    type: 'array',
+                                    description: '标签列表，如["快手菜", "下饭菜"]',
+                                    items: { type: 'string' }
+                                }
+                            },
+                            required: ['name', 'category']
+                        }
+                    },
+                    required: ['recipeData']
+                }
+            }
         }
     ];
 
@@ -330,8 +550,11 @@ const RecipeTools = (function() {
         initRecipes,
         getMenu,
         getRecipe,
+        addRecipe,
         executeTool,
-        toolsDefinition
+        toolsDefinition,
+        loadCustomRecipes,
+        saveCustomRecipes
     };
 })();
 
