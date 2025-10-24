@@ -3,6 +3,7 @@
 基于 DeepSeek AI 的智能美食 Web 应用，帮助你解决"今天吃什么"的世纪难题！
 
 github：https://github.com/gonigh/wenfan-ifood/tree/main
+
 在线demo：https://gonigh.github.io/wenfan-ifood/
 
 ## ✨ 功能特性
