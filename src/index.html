@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>问饭 IFood</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="food-background" id="foodBackground"></div>
+    <div class="container">
+        <div class="header">
+            <h1>问饭 IFood</h1>
+            <p class="subtitle">由 DeepSeek AI 驱动</p>
+            <button class="settings-btn" id="settingsBtn">⚙️ 设置</button>
+        </div>
+        
+        <div class="settings-panel" id="settingsPanel">
+            <label for="apiKey">DeepSeek API Key:</label>
+            <input type="password" id="apiKey" placeholder="请输入你的 DeepSeek API Key">
+            <div class="api-key-notice">
+                <p>💡 已预置体验用 API Key，可直接使用</p>
+                <p>⚠️ 大规模使用请前往 <a href="https://platform.deepseek.com/api_keys" target="_blank">DeepSeek 官网</a>申请并替换为自己的 Key</p>
+            </div>
+        </div>
+        
+        <div class="chat-area" id="chatArea">
+            <div class="welcome-msg">
+                <h2>👋 欢迎使用！</h2>
+                <p class="suggestion-title">你可以这样问我：</p>
+                <div class="suggestions" id="initialSuggestions">
+                    <button class="suggestion-btn">今天吃什么？</button>
+                    <button class="suggestion-btn">推荐一份4人的菜单</button>
+                    <button class="suggestion-btn">麻婆豆腐怎么做？</button>
+                    <button class="suggestion-btn">宫保鸡丁的做法</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="input-area">
+            <input type="text" id="userInput" placeholder="输入你的问题...">
+            <button id="sendBtn">发送</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="recipes-data.js"></script>
+    <script src="tools.js"></script>
+    <script src="menu-card.js"></script>
+    <script src="recipe-detail.js"></script>
+    <script src="background.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
