@@ -25,34 +25,46 @@ const RecipeDetail = (function() {
             return { valid: false, error: '菜品数据格式错误' };
         }
 
-        // 必需字段
+        // 必需字段：仅名称和分类
         if (!recipe.name || typeof recipe.name !== 'string' || recipe.name.trim() === '') {
             return { valid: false, error: '缺少菜品名称' };
         }
         if (!recipe.category || typeof recipe.category !== 'string') {
             return { valid: false, error: '缺少菜品分类' };
         }
-        if (typeof recipe.difficulty !== 'number' || recipe.difficulty < 1 || recipe.difficulty > 5) {
-            return { valid: false, error: '难度等级必须是1-5的整数' };
+        
+        // 难度可以为空，但如果有值必须是1-5的数字
+        if (recipe.difficulty !== null && recipe.difficulty !== undefined) {
+            if (typeof recipe.difficulty !== 'number' || recipe.difficulty < 1 || recipe.difficulty > 5) {
+                return { valid: false, error: '难度等级必须是1-5的整数' };
+            }
         }
-        if (!Array.isArray(recipe.ingredients) || recipe.ingredients.length === 0) {
-            return { valid: false, error: '配料清单不能为空' };
+        
+        // 配料可以为空，但必须是数组
+        if (recipe.ingredients && !Array.isArray(recipe.ingredients)) {
+            return { valid: false, error: '配料清单必须是数组格式' };
         }
-        if (!Array.isArray(recipe.steps) || recipe.steps.length === 0) {
-            return { valid: false, error: '制作步骤不能为空' };
+        
+        // 步骤可以为空，但必须是数组
+        if (recipe.steps && !Array.isArray(recipe.steps)) {
+            return { valid: false, error: '制作步骤必须是数组格式' };
         }
 
-        // 验证配料
-        for (let i = 0; i < recipe.ingredients.length; i++) {
-            if (!validateIngredient(recipe.ingredients[i])) {
-                return { valid: false, error: `配料 ${i + 1} 格式错误` };
+        // 验证配料（如果有的话）
+        if (recipe.ingredients && Array.isArray(recipe.ingredients)) {
+            for (let i = 0; i < recipe.ingredients.length; i++) {
+                if (!validateIngredient(recipe.ingredients[i])) {
+                    return { valid: false, error: `配料 ${i + 1} 格式错误` };
+                }
             }
         }
 
-        // 验证步骤
-        for (let i = 0; i < recipe.steps.length; i++) {
-            if (!validateStep(recipe.steps[i])) {
-                return { valid: false, error: `步骤 ${i + 1} 格式错误` };
+        // 验证步骤（如果有的话）
+        if (recipe.steps && Array.isArray(recipe.steps)) {
+            for (let i = 0; i < recipe.steps.length; i++) {
+                if (!validateStep(recipe.steps[i])) {
+                    return { valid: false, error: `步骤 ${i + 1} 格式错误` };
+                }
             }
         }
 
@@ -98,6 +110,9 @@ const RecipeDetail = (function() {
      * 渲染难度星级
      */
     function renderDifficulty(difficulty) {
+        if (!difficulty || typeof difficulty !== 'number') {
+            return ''; // 难度为空时不显示
+        }
         const stars = '★'.repeat(difficulty) + '☆'.repeat(5 - difficulty);
         return `<span class="recipe-difficulty" title="难度: ${difficulty}/5">${stars}</span>`;
     }
@@ -125,6 +140,10 @@ const RecipeDetail = (function() {
      * 渲染配料列表
      */
     function renderIngredients(ingredients, servings = 1) {
+        if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
+            return ''; // 配料为空时不显示
+        }
+        
         const uniqueIngredients = [];
         const seen = new Set();
         
@@ -175,6 +194,10 @@ const RecipeDetail = (function() {
      * 渲染制作步骤
      */
     function renderSteps(steps) {
+        if (!steps || steps.length === 0) {
+            return ''; // 步骤为空时返回空字符串
+        }
+        
         return `
             <div class="recipe-steps">
                 <h3>👨‍🍳 制作步骤</h3>
@@ -251,9 +274,9 @@ const RecipeDetail = (function() {
                 ${renderTimeInfo(recipe)}
 
                 <div class="recipe-content">
-                    ${renderIngredients(recipe.ingredients, servings)}
-                    ${renderSteps(recipe.steps)}
-                    ${renderNotes(recipe.additional_notes)}
+                    ${renderIngredients(recipe.ingredients || [], servings)}
+                    ${renderSteps(recipe.steps || [])}
+                    ${renderNotes(recipe.additional_notes || [])}
                 </div>
             </div>
         `;
@@ -269,18 +292,20 @@ const RecipeDetail = (function() {
     function bindEvents(container, recipe) {
         let currentServings = recipe.servings || 1;
 
-        // 份数调整
-        container.querySelectorAll('.servings-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const action = e.target.dataset.action;
-                if (action === 'increase') {
-                    currentServings++;
-                } else if (action === 'decrease' && currentServings > 1) {
-                    currentServings--;
-                }
-                updateServings(container, recipe, currentServings);
+        // 份数调整（只有在有配料的情况下才绑定）
+        if (recipe.ingredients && recipe.ingredients.length > 0) {
+            container.querySelectorAll('.servings-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const action = e.target.dataset.action;
+                    if (action === 'increase') {
+                        currentServings++;
+                    } else if (action === 'decrease' && currentServings > 1) {
+                        currentServings--;
+                    }
+                    updateServings(container, recipe, currentServings);
+                });
             });
-        });
+        }
 
         // 操作按钮
         container.querySelectorAll('.action-text-btn').forEach(btn => {
@@ -300,26 +325,30 @@ const RecipeDetail = (function() {
         const servingsValue = container.querySelector('.servings-value');
         if (servingsValue) servingsValue.textContent = servings;
 
-        // 重新渲染配料列表
-        const ingredientsContainer = container.querySelector('.recipe-ingredients');
-        if (ingredientsContainer) {
-            const newHtml = renderIngredients(recipe.ingredients, servings);
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = newHtml;
-            ingredientsContainer.replaceWith(tempDiv.firstElementChild);
-            
-            // 重新绑定份数按钮事件
-            container.querySelectorAll('.servings-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const action = e.target.dataset.action;
-                    if (action === 'increase') {
-                        servings++;
-                    } else if (action === 'decrease' && servings > 1) {
-                        servings--;
-                    }
-                    updateServings(container, recipe, servings);
-                });
-            });
+        // 重新渲染配料列表（如果有配料的话）
+        if (recipe.ingredients && recipe.ingredients.length > 0) {
+            const ingredientsContainer = container.querySelector('.recipe-ingredients');
+            if (ingredientsContainer) {
+                const newHtml = renderIngredients(recipe.ingredients, servings);
+                if (newHtml) {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = newHtml;
+                    ingredientsContainer.replaceWith(tempDiv.firstElementChild);
+                    
+                    // 重新绑定份数按钮事件
+                    container.querySelectorAll('.servings-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            const action = e.target.dataset.action;
+                            if (action === 'increase') {
+                                servings++;
+                            } else if (action === 'decrease' && servings > 1) {
+                                servings--;
+                            }
+                            updateServings(container, recipe, servings);
+                        });
+                    });
+                }
+            }
         }
     }
 

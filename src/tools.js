@@ -205,11 +205,24 @@ const RecipeTools = (function() {
             foundRecipe = recipes.find(r => r.name === dishName);
         }
 
+        // 如果还没有找到，尝试匹配去掉"的做法"后的名称
+        if (!foundRecipe) {
+            const cleanDishName = dishName.replace(/的做法$/, '').trim();
+            foundRecipe = recipes.find(r => {
+                const cleanRecipeName = r.name.replace(/的做法$/, '').trim();
+                return cleanRecipeName === cleanDishName;
+            });
+        }
+
         // 如果还没有找到，尝试模糊匹配名称
         if (!foundRecipe) {
-            foundRecipe = recipes.find(r =>
-                r.name.toLowerCase().includes(dishName.toLowerCase())
-            );
+            const cleanDishName = dishName.replace(/的做法$/, '').trim();
+            foundRecipe = recipes.find(r => {
+                const cleanRecipeName = r.name.replace(/的做法$/, '').trim();
+                return r.name.toLowerCase().includes(dishName.toLowerCase()) ||
+                       cleanRecipeName.toLowerCase().includes(cleanDishName.toLowerCase()) ||
+                       cleanDishName.toLowerCase().includes(cleanRecipeName.toLowerCase());
+            });
         }
 
         // 如果仍然没有找到，返回所有可能的匹配项（最多5个）
@@ -297,13 +310,13 @@ const RecipeTools = (function() {
             type: 'function',
             function: {
                 name: 'getRecipe',
-                description: '根据用户提供的菜品名称，查询并返回该菜品的详细制作方法，包括所需食材和步骤。',
+                description: '根据用户提供的菜品或饮品名称，查询并返回详细的制作方法，包括所需食材和步骤。支持查询各类菜肴（如麻婆豆腐、西红柿炒鸡蛋）和饮品（如可乐桶、奶茶等）的做法。',
                 parameters: {
                     type: 'object',
                     properties: {
                         dishName: {
                             type: 'string',
-                            description: "用户想要查询做法的菜品名称，例如 '麻婆豆腐' 或 '西红柿炒鸡蛋'。"
+                            description: "用户想要查询做法的菜品或饮品名称，例如 '麻婆豆腐'、'西红柿炒鸡蛋'、'可乐桶' 等。"
                         }
                     },
                     required: ['dishName']
