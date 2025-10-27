@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const DEFAULT_API_KEY = 'sk-b04c564fe6cc41bda7b5d23591415cf7';
 
     let apiKey = null;
-    let conversationHistory = [];
 
     // 加载菜谱数据
     function loadRecipes() {
@@ -25,8 +24,16 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // 初始化 AI
-    function initAI() {
+    // 标记是否已初始化
+    let isDispatcherInitialized = false;
+
+    // 初始化 Agent Dispatcher
+    function initAgentDispatcher() {
+        // 如果已经初始化过，直接返回成功
+        if (isDispatcherInitialized) {
+            return true;
+        }
+
         const inputKey = document.getElementById('apiKey').value.trim();
         if (inputKey) {
             apiKey = inputKey;
@@ -37,10 +44,48 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('settingsPanel').classList.add('active');
             return false;
         }
+
+        // 初始化Agent调度器（只初始化一次）
+        AgentDispatcher.init(apiKey, {
+            addMessage,
+            updateMessage,
+            showSuggestions
+        });
+
+        isDispatcherInitialized = true;
         return true;
     }
 
-    // 调用DeepSeek API（流式）
+    // 显示后续问题建议
+    function showSuggestions(questions) {
+        const chatArea = document.getElementById('chatArea');
+
+        // 移除之前的建议
+        const oldSuggestions = chatArea.querySelector('.suggestions');
+        if (oldSuggestions && !oldSuggestions.closest('.welcome-msg')) {
+            oldSuggestions.remove();
+        }
+
+        const suggestionsDiv = document.createElement('div');
+        suggestionsDiv.className = 'suggestions';
+        suggestionsDiv.style.margin = '20px auto';
+        suggestionsDiv.style.maxWidth = '400px';
+
+        questions.forEach(question => {
+            const btn = document.createElement('button');
+            btn.className = 'suggestion-btn';
+            btn.textContent = question;
+            btn.onclick = () => {
+                document.getElementById('userInput').value = question;
+                sendMessage();
+            };
+            suggestionsDiv.appendChild(btn);
+        });
+
+        chatArea.appendChild(suggestionsDiv);
+    }
+
+    // 调用DeepSeek API（流式）- 保留用于向后兼容
     async function callDeepSeekStream(messages, onChunk, onToolCall, options = {}) {
         const requestBody = {
             model: 'deepseek-chat',
@@ -133,183 +178,24 @@ document.addEventListener('DOMContentLoaded', function () {
         };
     }
 
-    // 发送消息
+    // 发送消息 - 使用Agent调度器
     async function sendMessage() {
         const input = document.getElementById('userInput');
         const message = input.value.trim();
 
         if (!message) return;
 
-        if (!initAI()) return;
+        if (!initAgentDispatcher()) return;
 
         // 显示用户消息
         addMessage('user', message);
         input.value = '';
 
-        // 创建一个bot消息容器用于流式输出
-        const botMessageId = 'bot-msg-' + Date.now();
-        addMessage('bot', '', botMessageId);
-
         try {
-            // 添加用户消息到历史
-            conversationHistory.push({
-                role: 'user',
-                content: message
-            });
-
-            let hasToolCalls = false;
-            let toolCallsToExecute = null;
-
-            // 流式调用API
-            const result = await callDeepSeekStream(
-                conversationHistory,
-                (content) => {
-                    // 实时更新UI以显示流式效果
-                    // 注意：如果后续检测到工具调用，这部分内容会被覆盖
-                    if (!hasToolCalls) {
-                        updateMessage(botMessageId, content);
-                    }
-                },
-                (toolCalls) => {
-                    hasToolCalls = true;
-                    toolCallsToExecute = toolCalls;
-                }
-            );
-
-            // 处理工具调用
-            if (hasToolCalls && toolCallsToExecute) {
-                // 清空之前流式显示的内容（如果有）
-                updateMessage(botMessageId, '');
-                
-                // 添加助手消息到历史（包含tool_calls）
-                conversationHistory.push({
-                    role: 'assistant',
-                    content: result.content || null,
-                    tool_calls: toolCallsToExecute
-                });
-
-                // 执行所有工具调用，并检查是否有特殊数据需要渲染
-                let menuResult = null;
-                let recipeResult = null;
-                let recipeNotFound = null;
-                for (const toolCall of toolCallsToExecute) {
-                    const functionName = toolCall.function.name;
-                    const functionArgs = JSON.parse(toolCall.function.arguments);
-                    const functionResult = RecipeTools.executeTool(functionName, functionArgs);
-
-                    // 如果是getMenu工具，保存结果用于特殊渲染
-                    if (functionName === 'getMenu' && functionResult.dishes) {
-                        menuResult = functionResult;
-                    }
-
-                    // 如果是getRecipe工具且成功找到菜谱，保存结果用于详情组件渲染
-                    if (functionName === 'getRecipe' && functionResult.success && functionResult.recipe) {
-                        recipeResult = functionResult.recipe;
-                    }
-                    
-                    // 如果是getRecipe工具但未找到菜谱，记录菜品名称用于联网搜索
-                    if (functionName === 'getRecipe' && functionResult.error) {
-                        recipeNotFound = functionArgs.dishName;
-                    }
-
-                    conversationHistory.push({
-                        role: 'tool',
-                        tool_call_id: toolCall.id,
-                        content: JSON.stringify(functionResult)
-                    });
-                }
-
-                // 如果有菜谱详情数据，直接显示详情组件
-                if (recipeResult) {
-                    // 创建消息容器
-                    const contentDiv = document.getElementById(botMessageId).querySelector('.message-content');
-                    contentDiv.id = botMessageId + '-content';
-                    
-                    // 渲染菜品详情
-                    RecipeDetail.render(recipeResult, contentDiv.id);
-                    
-                    // 添加简化的助手回答到历史
-                    conversationHistory.push({
-                        role: 'assistant',
-                        content: `已为用户显示了《${recipeResult.name}》的详细做法。`
-                    });
-                } 
-                // 如果需要联网搜索菜品做法
-                else if (recipeNotFound) {
-                    // 调用AI联网搜索并总结菜品做法
-                    const searchedRecipe = await AppHelpers.searchRecipeOnline(
-                        recipeNotFound, 
-                        botMessageId, 
-                        apiKey, 
-                        updateMessage, 
-                        addMessage
-                    );
-                    
-                    if (searchedRecipe) {
-                        // 添加助手回答到历史
-                        conversationHistory.push({
-                            role: 'assistant',
-                            content: `已通过联网搜索找到《${searchedRecipe.name}》的做法并展示给用户。`
-                        });
-                    } else {
-                        // 搜索失败，显示常规AI回答
-                        const finalResult = await callDeepSeekStream(
-                            conversationHistory,
-                            (content) => {
-                                updateMessage(botMessageId, content);
-                            },
-                            () => { }
-                        );
-                        conversationHistory.push({
-                            role: 'assistant',
-                            content: finalResult.content
-                        });
-                    }
-                }
-                // 如果有菜单数据，直接显示卡片
-                else if (menuResult) {
-                    updateMessage(botMessageId, '', menuResult);
-                    
-                    // 添加简化的助手回答到历史（用于AI生成建议）
-                    conversationHistory.push({
-                        role: 'assistant',
-                        content: `已为用户推荐了${menuResult.peopleCount}人份的菜单，包含${menuResult.dishes.length}道菜。`
-                    });
-                } else {
-                    // 流式调用API获取最终回答（第一次不显示，直接显示最终结果）
-                    const finalResult = await callDeepSeekStream(
-                        conversationHistory,
-                        (content) => {
-                            updateMessage(botMessageId, content);
-                        },
-                        () => { }
-                    );
-
-                    // 添加最终助手回答到历史
-                    conversationHistory.push({
-                        role: 'assistant',
-                        content: finalResult.content
-                    });
-                }
-
-                // 通过AI生成并显示后续问题建议
-                const followUpQuestions = await AppHelpers.generateSuggestionsWithAI(conversationHistory, apiKey);
-                AppHelpers.showSuggestions(followUpQuestions, sendMessage);
-            } else {
-                // 没有工具调用，内容已在流式过程中显示
-                // 只需添加回答到历史
-                conversationHistory.push({
-                    role: 'assistant',
-                    content: result.content
-                });
-
-                // 通过AI生成并显示后续问题建议
-                const followUpQuestions = await AppHelpers.generateSuggestionsWithAI(conversationHistory, apiKey);
-                AppHelpers.showSuggestions(followUpQuestions, sendMessage);
-            }
-
+            // 使用Agent调度器处理消息
+            await AgentDispatcher.dispatch(message);
         } catch (error) {
-            updateMessage(botMessageId, '❌ 发生错误: ' + error.message);
+            addMessage('bot', '❌ 发生错误: ' + error.message);
             console.error(error);
         }
     };
@@ -356,7 +242,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
         msgDiv.appendChild(contentDiv);
         chatArea.appendChild(msgDiv);
-        
+
+        // 滚动到最新消息
+        chatArea.scrollTop = chatArea.scrollHeight;
+
         return messageId || msgDiv.id;
     }
 
@@ -364,7 +253,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function updateMessage(messageId, text, menuData = null) {
         const msgDiv = document.getElementById(messageId);
         if (!msgDiv) return;
-        
+
         const contentDiv = msgDiv.querySelector('.message-content');
         if (contentDiv) {
             // 优先渲染菜单卡片
@@ -377,11 +266,48 @@ document.addEventListener('DOMContentLoaded', function () {
             } else {
                 contentDiv.textContent = text;
             }
+
+            // 滚动到最新消息
+            const chatArea = document.getElementById('chatArea');
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+    }
+
+    // 处理查看菜谱
+    function handleViewRecipe(dishName) {
+        const recipe = window.recipesData.find(r =>
+            r.name === dishName ||
+            r.name.includes(dishName) ||
+            dishName.includes(r.name.replace('的做法', ''))
+        );
+
+        if (recipe) {
+            const messageId = 'recipe-detail-' + Date.now();
+            const chatArea = document.getElementById('chatArea');
+
+            const welcome = chatArea.querySelector('.welcome-msg');
+            if (welcome) welcome.remove();
+
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message bot';
+            msgDiv.id = messageId;
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.id = messageId + '-content';
+
+            msgDiv.appendChild(contentDiv);
+            chatArea.appendChild(msgDiv);
+
+            RecipeDetail.render(recipe, contentDiv.id);
+        } else {
+            document.getElementById('userInput').value = `${dishName}怎么做？`;
+            sendMessage();
         }
     }
 
     // 暴露到全局供背景脚本使用
-    window.handleViewRecipe = (dishName) => AppHelpers.handleViewRecipe(dishName, sendMessage);
+    window.handleViewRecipe = handleViewRecipe;
 
 
     // 切换设置面板
@@ -418,10 +344,21 @@ document.addEventListener('DOMContentLoaded', function () {
         apiKey = newKey;
     });
 
+    // 绑定初始建议按钮
+    function bindInitialSuggestions() {
+        const suggestionButtons = document.querySelectorAll('.suggestion-btn');
+        suggestionButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.getElementById('userInput').value = btn.textContent;
+                sendMessage();
+            });
+        });
+    }
+
     // 绑定事件监听器
     document.getElementById('settingsBtn').addEventListener('click', toggleSettings);
     document.getElementById('sendBtn').addEventListener('click', sendMessage);
     document.getElementById('userInput').addEventListener('keypress', handleKeyPress);
-    AppHelpers.bindSuggestionButtons(sendMessage);
+    bindInitialSuggestions();
 
 }); // DOMContentLoaded 结束

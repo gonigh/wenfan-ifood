@@ -56,8 +56,146 @@ const RecipeTools = (function() {
     }
 
     /**
+     * 解析用户偏好上下文，提取关键词
+     * @param {string} context - 用户描述的偏好
+     * @returns {Object} 解析结果
+     */
+    function parseUserPreferences(context) {
+        if (!context || typeof context !== 'string') {
+            return { keywords: [], categories: [] };
+        }
+
+        const contextLower = context.toLowerCase();
+        const keywords = [];
+        const categories = [];
+
+        // 食材类型关键词映射
+        const ingredientMap = {
+            '海鲜': ['虾', '蟹', '鱼', '贝', '蛤', '鲍鱼', '扇贝', '海参', '鱿鱼', '章鱼'],
+            '水产': ['虾', '蟹', '鱼', '贝', '蛤', '鲍鱼', '扇贝', '海参', '鱿鱼', '章鱼'],
+            '猪肉': ['猪肉', '五花肉', '里脊', '排骨', '猪蹄', '猪肝'],
+            '牛肉': ['牛肉', '牛排', '牛腩', '牛柳'],
+            '鸡肉': ['鸡', '鸡翅', '鸡腿', '鸡胸'],
+            '羊肉': ['羊肉', '羊排', '羊腿'],
+            '豆腐': ['豆腐', '豆干', '豆皮'],
+            '蔬菜': ['青菜', '白菜', '菠菜', '生菜', '芹菜', '西兰花', '菜花'],
+            '菌菇': ['香菇', '蘑菇', '金针菇', '木耳', '银耳', '平菇'],
+            '素菜': ['青菜', '白菜', '菠菜', '茄子', '豆腐', '土豆', '萝卜']
+        };
+
+        // 口味关键词
+        const tasteKeywords = {
+            '辣': ['辣', '麻辣', '香辣', '川菜', '湘菜'],
+            '清淡': ['清淡', '少油', '少盐', '健康'],
+            '咸': ['咸', '重口'],
+            '甜': ['甜', '糖醋'],
+            '酸': ['酸', '醋'],
+            '鲜': ['鲜', '清鲜']
+        };
+
+        // 烹饪方式关键词
+        const cookingMethodKeywords = {
+            '炒': ['炒', '快手'],
+            '蒸': ['蒸', '清蒸'],
+            '煮': ['煮', '炖', '汤'],
+            '炸': ['炸', '煎'],
+            '烤': ['烤', '烧烤'],
+            '凉拌': ['凉拌', '凉菜']
+        };
+
+        // 检查食材类型
+        for (const [key, items] of Object.entries(ingredientMap)) {
+            if (contextLower.includes(key.toLowerCase())) {
+                keywords.push(...items);
+                if (key === '海鲜' || key === '水产') {
+                    categories.push('水产');
+                }
+            }
+        }
+
+        // 检查口味
+        for (const [key, items] of Object.entries(tasteKeywords)) {
+            if (items.some(taste => contextLower.includes(taste))) {
+                keywords.push(key);
+            }
+        }
+
+        // 检查烹饪方式
+        for (const [key, items] of Object.entries(cookingMethodKeywords)) {
+            if (items.some(method => contextLower.includes(method))) {
+                keywords.push(key);
+            }
+        }
+
+        return {
+            keywords: [...new Set(keywords)], // 去重
+            categories: [...new Set(categories)]
+        };
+    }
+
+    /**
+     * 根据用户偏好过滤菜品
+     * @param {Array} dishes - 菜品列表
+     * @param {Object} preferences - 用户偏好
+     * @returns {Array} 过滤后的菜品列表
+     */
+    function filterDishesByPreferences(dishes, preferences) {
+        if (!preferences.keywords || preferences.keywords.length === 0) {
+            return dishes;
+        }
+
+        // 根据偏好对菜品进行评分
+        const scoredDishes = dishes.map(dish => {
+            let score = 0;
+            const dishText = `${dish.name} ${dish.description} ${dish.category} ${(dish.tags || []).join(' ')}`.toLowerCase();
+
+            // 检查食材匹配
+            const ingredientsText = (dish.ingredients || [])
+                .map(ing => ing.name || '')
+                .join(' ')
+                .toLowerCase();
+
+            // 分类匹配
+            if (preferences.categories.includes(dish.category)) {
+                score += 10;
+            }
+
+            // 关键词匹配
+            for (const keyword of preferences.keywords) {
+                const keywordLower = keyword.toLowerCase();
+                if (dishText.includes(keywordLower)) {
+                    score += 5;
+                }
+                if (ingredientsText.includes(keywordLower)) {
+                    score += 8;
+                }
+                if (dish.name.toLowerCase().includes(keywordLower)) {
+                    score += 15; // 菜名匹配权重最高
+                }
+            }
+
+            return { dish, score };
+        });
+
+        // 过滤出有分数的菜品
+        const matchedDishes = scoredDishes.filter(item => item.score > 0);
+
+        // 如果有匹配的菜品，返回按分数排序的结果
+        if (matchedDishes.length > 0) {
+            return matchedDishes
+                .sort((a, b) => b.score - a.score)
+                .map(item => item.dish);
+        }
+
+        // 如果没有匹配，返回原始列表（降级为随机推荐）
+        console.log('RecipeTools: 未找到匹配的菜品，使用随机推荐');
+        return dishes;
+    }
+
+    /**
      * 获取菜单推荐
      * @param {number} peopleCount - 用餐人数（1-10人），默认4人
+     * @param {string} context - 用户偏好上下文（可选），如"想吃海鲜"、"要辣的"、"清淡一些"等
      * @returns {Object} 菜单数据对象
      * @returns {number} return.peopleCount - 用餐人数
      * @returns {Array<Object>} return.dishes - 推荐菜品列表（仅包含菜单展示字段）
@@ -68,7 +206,7 @@ const RecipeTools = (function() {
      * @returns {string} [return.dishes[].image] - 成品图片URL
      * @returns {string} return.message - 推荐说明文字
      */
-    function getMenu(peopleCount = 4) {
+    function getMenu(peopleCount = 4, context = '') {
         // 参数验证
         if (typeof peopleCount !== 'number' || peopleCount < 1 || peopleCount > 20) {
             console.warn(`RecipeTools.getMenu: 人数 ${peopleCount} 超出范围，使用默认值 4`);
@@ -83,6 +221,11 @@ const RecipeTools = (function() {
                 message: '⚠️ 菜谱数据未加载，无法推荐菜单'
             };
         }
+
+        // 解析用户偏好上下文
+        const preferences = parseUserPreferences(context);
+        console.log('RecipeTools.getMenu: 解析的用户偏好:', preferences);
+
         const vegetableCount = Math.floor((peopleCount + 1) / 2);
         const meatCount = Math.ceil((peopleCount + 1) / 2);
 
@@ -91,6 +234,12 @@ const RecipeTools = (function() {
             r.category !== '荤菜' && r.category !== '水产' &&
             r.category !== '早餐' && r.category !== '主食'
         );
+
+        // 根据用户偏好过滤菜品
+        if (preferences.keywords.length > 0) {
+            meatDishes = filterDishesByPreferences(meatDishes, preferences);
+            vegetableDishes = filterDishesByPreferences(vegetableDishes, preferences);
+        }
 
         let recommendedDishes = [];
         let fishDish = null;
@@ -401,6 +550,7 @@ const RecipeTools = (function() {
      * @param {string} functionName - 函数名称：'getMenu'、'getRecipe' 或 'addRecipe'
      * @param {Object} args - 函数参数
      * @param {number} [args.peopleCount] - getMenu 所需参数：用餐人数
+     * @param {string} [args.context] - getMenu 所需参数：用户偏好上下文
      * @param {string} [args.dishName] - getRecipe 所需参数：菜品名称
      * @param {Object} [args.recipeData] - addRecipe 所需参数：菜品数据
      * @returns {Object} 执行结果或错误信息
@@ -417,13 +567,13 @@ const RecipeTools = (function() {
         }
 
         if (functionName === 'getMenu') {
-            return getMenu(args.peopleCount || 4);
+            return getMenu(args.peopleCount || 4, args.context || '');
         } else if (functionName === 'getRecipe') {
             return getRecipe(args.dishName);
         } else if (functionName === 'addRecipe') {
             return addRecipe(args.recipeData);
         }
-        
+
         console.error('RecipeTools.executeTool: 未知的工具函数', functionName);
         return { error: `未知的工具函数: ${functionName}` };
     }
@@ -434,13 +584,17 @@ const RecipeTools = (function() {
             type: 'function',
             function: {
                 name: 'getMenu',
-                description: '根据用餐人数智能推荐荤素搭配的菜品组合，解决用户"今天吃什么"的难题。',
+                description: '根据用餐人数和用户偏好智能推荐荤素搭配的菜品组合，解决用户"今天吃什么"的难题。支持根据上下文识别用户的口味偏好（如海鲜、辣、清淡等）进行个性化推荐。',
                 parameters: {
                     type: 'object',
                     properties: {
                         peopleCount: {
                             type: 'number',
                             description: '用餐人数（1-10人），会根据人数推荐合适数量和搭配的菜品'
+                        },
+                        context: {
+                            type: 'string',
+                            description: '用户的口味偏好或需求描述，例如："想吃海鲜"、"要辣的菜"、"清淡一些"、"想吃川菜"、"要有豆腐"等。AI应该从对话历史中提取用户表达的偏好，如果用户没有明确偏好则留空。'
                         }
                     }
                 }
