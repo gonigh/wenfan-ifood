@@ -64,8 +64,8 @@
 
 6. 移动端也支持
 
-![移动端](assets/6.JPEG)
-![移动端](assets/7.JPEG)
+<img src="assets/6.JPEG" alt="移动端" width="375px">
+<img src="assets/7.JPEG" alt="移动端" width="375px">
 
 ## 📁 项目结构
 
