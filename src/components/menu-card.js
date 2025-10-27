@@ -210,7 +210,7 @@ const MenuCard = (function() {
                     const userInput = document.getElementById('userInput');
                     const sendBtn = document.getElementById('sendBtn');
                     if (userInput && sendBtn) {
-                        userInput.value = `查看${dishName}的做法`;
+                        userInput.value = `查看${dishName}`;
                         sendBtn.click(); // 触发发送按钮点击事件
                     }
                 }
