@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // 显示后续问题建议
-    function showSuggestions(questions) {
+    function showSuggestions(questions, customCallback = null) {
         const chatArea = document.getElementById('chatArea');
 
         // 移除之前的建议
@@ -76,8 +76,14 @@ document.addEventListener('DOMContentLoaded', function () {
             btn.className = 'suggestion-btn';
             btn.textContent = question;
             btn.onclick = () => {
-                document.getElementById('userInput').value = question;
-                sendMessage();
+                if (customCallback) {
+                    // 使用自定义回调
+                    customCallback(question);
+                } else {
+                    // 默认行为：填充输入框并发送
+                    document.getElementById('userInput').value = question;
+                    sendMessage();
+                }
             };
             suggestionsDiv.appendChild(btn);
         });
@@ -269,7 +275,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // 滚动到最新消息
             const chatArea = document.getElementById('chatArea');
-            chatArea.scrollTop = chatArea.scrollHeight;
+            // chatArea.scrollTop = chatArea.scrollHeight;
         }
     }
 
