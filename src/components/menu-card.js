@@ -193,16 +193,10 @@ const MenuCard = (function() {
     /**
      * 绑定卡片按钮事件
      * @param {HTMLElement} container - 包含菜单卡片的容器元素
-     * @param {Function} onViewRecipe - 点击"查看做法"按钮时的回调函数，接收菜品名称作为参数
      */
-    function bindEvents(container, onViewRecipe) {
+    function bindEvents(container) {
         if (!container) {
             console.warn('MenuCard.bindEvents: 容器元素不存在');
-            return;
-        }
-        
-        if (typeof onViewRecipe !== 'function') {
-            console.warn('MenuCard.bindEvents: onViewRecipe 必须是一个函数');
             return;
         }
         
@@ -212,7 +206,13 @@ const MenuCard = (function() {
                 e.preventDefault();
                 const dishName = this.getAttribute('data-dish-name');
                 if (dishName) {
-                    onViewRecipe(dishName);
+                    // 填充输入框并直接发送
+                    const userInput = document.getElementById('userInput');
+                    const sendBtn = document.getElementById('sendBtn');
+                    if (userInput && sendBtn) {
+                        userInput.value = `查看${dishName}的做法`;
+                        sendBtn.click(); // 触发发送按钮点击事件
+                    }
                 }
             });
         });

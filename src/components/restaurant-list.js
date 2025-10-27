@@ -75,17 +75,6 @@ const RestaurantList = (function() {
         const actionsDiv = document.createElement('div');
         actionsDiv.className = 'restaurant-actions';
 
-        // 电话按钮
-        if (restaurant.business?.tel) {
-            const telBtn = document.createElement('button');
-            telBtn.className = 'action-btn tel-btn';
-            telBtn.innerHTML = '📞 电话';
-            telBtn.onclick = () => {
-                window.location.href = `tel:${restaurant.business.tel}`;
-            };
-            actionsDiv.appendChild(telBtn);
-        }
-
         // 导航按钮
         if (restaurant.location) {
             const navBtn = document.createElement('button');
@@ -171,22 +160,22 @@ const RestaurantList = (function() {
             infoContainer.appendChild(distanceDiv);
         }
 
-        // 特色标签
+        contentDiv.appendChild(infoContainer);
+        item.appendChild(contentDiv);
+
+        // 推荐菜标签 - 单独放在底部
         if (restaurant.business?.tag) {
             const tagsDiv = document.createElement('div');
             tagsDiv.className = 'restaurant-tags';
-            const tags = restaurant.business.tag.split(';').slice(0, 3); // 最多显示3个标签
+            const tags = restaurant.business.tag.split(';').slice(0, 5); // 最多显示5个标签
             tags.forEach(tag => {
                 const tagSpan = document.createElement('span');
                 tagSpan.className = 'tag-item';
                 tagSpan.textContent = tag;
                 tagsDiv.appendChild(tagSpan);
             });
-            infoContainer.appendChild(tagsDiv);
+            item.appendChild(tagsDiv);
         }
-
-        contentDiv.appendChild(infoContainer);
-        item.appendChild(contentDiv);
 
         return item;
     }

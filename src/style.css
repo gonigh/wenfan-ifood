@@ -7,13 +7,20 @@
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%);
-    height: 100vh;
+    min-height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
     padding: 20px;
     overflow: hidden;
     position: relative;
+}
+
+@media (max-width: 768px) {
+    body {
+        padding: 0;
+        align-items: stretch;
+    }
 }
 
 /* 食物滚动背景 */
@@ -62,6 +69,18 @@ body {
     user-select: none;
 }
 
+@media (max-width: 768px) {
+    .food-item {
+        padding: 8px 16px;
+        font-size: 14px;
+        margin: 0 10px;
+    }
+
+    .food-item .emoji {
+        font-size: 20px;
+    }
+}
+
 .food-item:hover {
     transform: scale(1.1);
     background: rgba(255, 255, 255, 0.3);
@@ -90,6 +109,14 @@ body {
     z-index: 1;
 }
 
+@media (max-width: 768px) {
+    .container {
+        max-width: 100%;
+        height: 100vh;
+        border-radius: 0;
+    }
+}
+
 .header {
     background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%);
     color: white;
@@ -108,6 +135,20 @@ body {
     opacity: 0.9;
 }
 
+@media (max-width: 768px) {
+    .header {
+        padding: 20px 15px;
+    }
+
+    .header h1 {
+        font-size: 20px;
+    }
+
+    .header .subtitle {
+        font-size: 11px;
+    }
+}
+
 .settings-btn {
     position: absolute;
     right: 20px;
@@ -122,6 +163,14 @@ body {
     font-size: 14px;
 }
 
+@media (max-width: 768px) {
+    .settings-btn {
+        right: 15px;
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+}
+
 .settings-btn:hover {
     background: rgba(255, 255, 255, 0.3);
 }
@@ -131,6 +180,12 @@ body {
     background: #f8f9fa;
     border-bottom: 1px solid #e0e0e0;
     display: none;
+}
+
+@media (max-width: 768px) {
+    .settings-panel {
+        padding: 15px;
+    }
 }
 
 .settings-panel.active {
@@ -189,6 +244,12 @@ body {
     background: #f8f9fa;
 }
 
+@media (max-width: 768px) {
+    .chat-area {
+        padding: 15px;
+    }
+}
+
 .message {
     margin-bottom: 20px;
     display: flex;
@@ -209,6 +270,14 @@ body {
     padding: 12px 18px;
     border-radius: 18px;
     line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+    .message-content {
+        max-width: 100%;
+        padding: 10px 14px;
+        font-size: 14px;
+    }
 }
 
 .message.user .message-content {
@@ -326,6 +395,13 @@ body {
     gap: 10px;
 }
 
+@media (max-width: 768px) {
+    .input-area {
+        padding: 15px;
+        gap: 8px;
+    }
+}
+
 .input-area input {
     flex: 1;
     padding: 12px 18px;
@@ -334,6 +410,13 @@ body {
     font-size: 14px;
     outline: none;
     transition: border-color 0.3s;
+}
+
+@media (max-width: 768px) {
+    .input-area input {
+        padding: 10px 16px;
+        font-size: 13px;
+    }
 }
 
 .input-area input:focus {
@@ -352,6 +435,13 @@ body {
     transition: transform 0.2s, box-shadow 0.2s;
 }
 
+@media (max-width: 768px) {
+    .input-area button {
+        padding: 10px 20px;
+        font-size: 13px;
+    }
+}
+
 .input-area button:hover {
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
@@ -367,6 +457,16 @@ body {
     text-align: center;
     padding: 40px 20px;
     color: #666;
+}
+
+@media (max-width: 768px) {
+    .welcome-msg {
+        padding: 30px 15px;
+    }
+
+    .welcome-msg h2 {
+        font-size: 20px;
+    }
 }
 
 .welcome-msg h2 {
@@ -572,22 +672,30 @@ body {
     box-shadow: 0 4px 12px rgba(245, 101, 101, 0.15);
 }
 
-/* 响应式设计 */
+/* 响应式设计 - 菜单卡片 */
 @media (max-width: 768px) {
     .menu-cards {
         grid-template-columns: 1fr;
         gap: 16px;
         padding: 0 10px;
     }
-    
+
     .menu-intro {
         font-size: 14px;
         padding: 14px 18px;
         margin-bottom: 16px;
     }
-    
+
     .menu-card-image {
         height: 200px;
+    }
+
+    .menu-card-title {
+        font-size: 16px;
+    }
+
+    .menu-card-description {
+        font-size: 13px;
     }
 }
 
@@ -619,10 +727,23 @@ body {
     padding-right: 75px; /* 为右上角按钮留出空间 */
 }
 
+@media (max-width: 768px) {
+    .recipe-header {
+        padding: 12px 16px;
+        padding-right: 80px;
+    }
+}
+
 .recipe-title {
     font-size: 22px;
     font-weight: 700;
     margin-bottom: 8px;
+}
+
+@media (max-width: 768px) {
+    .recipe-title {
+        font-size: 18px;
+    }
 }
 
 .recipe-meta {
@@ -682,6 +803,12 @@ body {
 
 .recipe-content {
     padding: 16px;
+}
+
+@media (max-width: 768px) {
+    .recipe-content {
+        padding: 12px;
+    }
 }
 
 /* 配料清单 */
@@ -750,6 +877,12 @@ body {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 8px;
+}
+
+@media (max-width: 768px) {
+    .ingredients-list {
+        grid-template-columns: 1fr;
+    }
 }
 
 .ingredients-list li {
@@ -824,6 +957,12 @@ body {
     margin-top: 8px;
 }
 
+@media (max-width: 768px) {
+    .step-image {
+        max-width: 100%;
+    }
+}
+
 .step-duration {
     display: inline-block;
     background: #fff8e1;
@@ -877,6 +1016,12 @@ body {
     z-index: 10;
 }
 
+@media (max-width: 768px) {
+    .recipe-actions-top {
+        gap: 6px;
+    }
+}
+
 .action-text-btn {
     padding: 6px 14px;
     border: none;
@@ -889,6 +1034,13 @@ body {
     transition: all 0.2s;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(4px);
+}
+
+@media (max-width: 768px) {
+    .action-text-btn {
+        padding: 5px 12px;
+        font-size: 12px;
+    }
 }
 
 .action-text-btn:hover {
@@ -979,6 +1131,12 @@ body {
     margin: 0 auto;
 }
 
+@media (max-width: 768px) {
+    .restaurant-list-wrapper {
+        max-width: 100%;
+    }
+}
+
 .restaurant-list-header {
     display: flex;
     justify-content: space-between;
@@ -989,12 +1147,27 @@ body {
     border-radius: 12px;
 }
 
+@media (max-width: 768px) {
+    .restaurant-list-header {
+        flex-direction: column;
+        gap: 8px;
+        padding: 10px 12px;
+        align-items: flex-start;
+    }
+}
+
 .location-info {
     display: flex;
     align-items: center;
     gap: 8px;
     font-size: 14px;
     color: #333;
+}
+
+@media (max-width: 768px) {
+    .location-info {
+        font-size: 13px;
+    }
 }
 
 .location-icon {
@@ -1011,10 +1184,22 @@ body {
     font-weight: 500;
 }
 
+@media (max-width: 768px) {
+    .result-count {
+        font-size: 13px;
+    }
+}
+
 .restaurant-list {
     display: flex;
     flex-direction: column;
     gap: 16px;
+}
+
+@media (max-width: 768px) {
+    .restaurant-list {
+        gap: 12px;
+    }
 }
 
 .restaurant-list-empty {
@@ -1034,6 +1219,13 @@ body {
     position: relative;
 }
 
+@media (max-width: 768px) {
+    .restaurant-item {
+        padding: 12px;
+        border-radius: 12px;
+    }
+}
+
 .restaurant-item:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 16px rgba(255, 107, 107, 0.15);
@@ -1045,6 +1237,14 @@ body {
     align-items: center;
     gap: 12px;
     margin-bottom: 12px;
+}
+
+@media (max-width: 768px) {
+    .restaurant-name-row {
+        gap: 8px;
+        margin-bottom: 8px;
+        padding-right: 80px;
+    }
 }
 
 .restaurant-index {
@@ -1061,12 +1261,26 @@ body {
     flex-shrink: 0;
 }
 
+@media (max-width: 768px) {
+    .restaurant-index {
+        width: 24px;
+        height: 24px;
+        font-size: 12px;
+    }
+}
+
 .restaurant-name {
     font-size: 18px;
     font-weight: 600;
     color: #333;
     margin: 0;
     flex: 1;
+}
+
+@media (max-width: 768px) {
+    .restaurant-name {
+        font-size: 16px;
+    }
 }
 
 .restaurant-type-tag {
@@ -1079,11 +1293,25 @@ body {
     margin-bottom: 12px;
 }
 
+@media (max-width: 768px) {
+    .restaurant-type-tag {
+        padding: 3px 10px;
+        font-size: 11px;
+        margin-bottom: 8px;
+    }
+}
+
 /* 主内容区域 - 左右布局 */
 .restaurant-content {
     display: flex;
     gap: 16px;
     margin-bottom: 12px;
+}
+
+@media (max-width: 768px) {
+    .restaurant-content {
+        gap: 12px;
+    }
 }
 
 .restaurant-photo {
@@ -1093,6 +1321,13 @@ body {
     border-radius: 12px;
     overflow: hidden;
     background: #f5f5f5;
+}
+
+@media (max-width: 768px) {
+    .restaurant-photo {
+        width: 100px;
+        height: 100px;
+    }
 }
 
 .restaurant-photo-img {
@@ -1109,10 +1344,22 @@ body {
     gap: 8px;
 }
 
+@media (max-width: 768px) {
+    .restaurant-info-container {
+        gap: 6px;
+    }
+}
+
 .restaurant-business {
     display: flex;
     flex-wrap: wrap;
     gap: 16px;
+}
+
+@media (max-width: 768px) {
+    .restaurant-business {
+        gap: 12px;
+    }
 }
 
 .business-item {
@@ -1120,6 +1367,12 @@ body {
     align-items: center;
     gap: 4px;
     font-size: 14px;
+}
+
+@media (max-width: 768px) {
+    .business-item {
+        font-size: 13px;
+    }
 }
 
 .business-icon {
@@ -1138,6 +1391,12 @@ body {
     font-size: 13px;
     color: #666;
     line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+    .restaurant-address {
+        font-size: 12px;
+    }
 }
 
 .address-icon {
@@ -1159,6 +1418,12 @@ body {
     font-weight: 500;
 }
 
+@media (max-width: 768px) {
+    .restaurant-distance {
+        font-size: 12px;
+    }
+}
+
 .distance-icon {
     font-size: 14px;
 }
@@ -1167,14 +1432,33 @@ body {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+    padding-top: 12px;
+    margin-top: 12px;
+    border-top: 1px dashed #e8e8e8;
+}
+
+@media (max-width: 768px) {
+    .restaurant-tags {
+        gap: 5px;
+        padding-top: 10px;
+        margin-top: 10px;
+    }
 }
 
 .tag-item {
-    padding: 3px 8px;
+    padding: 4px 10px;
     background: rgba(255, 107, 107, 0.1);
     color: #FF6B6B;
-    font-size: 11px;
-    border-radius: 6px;
+    font-size: 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 107, 107, 0.2);
+}
+
+@media (max-width: 768px) {
+    .tag-item {
+        padding: 3px 8px;
+        font-size: 11px;
+    }
 }
 
 /* 操作按钮 - 固定到右上角 */
@@ -1185,6 +1469,14 @@ body {
     display: flex;
     gap: 8px;
     z-index: 10;
+}
+
+@media (max-width: 768px) {
+    .restaurant-actions {
+        gap: 6px;
+        top: 10px;
+        right: 10px;
+    }
 }
 
 .action-btn {
@@ -1203,6 +1495,13 @@ body {
     gap: 4px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
     backdrop-filter: blur(4px);
+}
+
+@media (max-width: 768px) {
+    .action-btn {
+        padding: 5px 10px;
+        font-size: 11px;
+    }
 }
 
 .action-btn:hover {

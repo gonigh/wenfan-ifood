@@ -234,7 +234,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 contentDiv.innerHTML = MenuCard.render(menuData);
                 // 延迟绑定事件，确保DOM已添加
                 setTimeout(() => {
-                    MenuCard.bindEvents(contentDiv, handleViewRecipe);
+                    MenuCard.bindEvents(contentDiv);
                 }, 0);
             } else if (typeof marked !== 'undefined') {
                 // 否则渲染markdown
@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (menuData && MenuCard.isMenuData(menuData)) {
                 contentDiv.innerHTML = MenuCard.render(menuData);
                 // 绑定卡片按钮事件
-                MenuCard.bindEvents(contentDiv, handleViewRecipe);
+                MenuCard.bindEvents(contentDiv);
             } else if (typeof marked !== 'undefined') {
                 contentDiv.innerHTML = marked.parse(text);
             } else {
@@ -275,7 +275,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // 滚动到最新消息
             const chatArea = document.getElementById('chatArea');
-            // chatArea.scrollTop = chatArea.scrollHeight;
+            chatArea.scrollTop = chatArea.scrollHeight;
         }
     }
 

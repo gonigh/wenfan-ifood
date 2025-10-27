@@ -272,10 +272,29 @@ const AgentDispatcher = (function() {
         }
 
         currentAgent = agent;
+        
+        // 保存用户消息
+        lastUserMessage = message;
+        
+        // 记录对话历史
+        conversationHistory.push({ role: 'user', content: message });
+        
         await agent.handleMessage(message, {
             uiCallbacks,
             dispatcher: this
         });
+        
+        // 获取最新的助手回复（从对话历史中）
+        const history = agent.getHistory();
+        const lastAssistantMsg = history.filter(m => m.role === 'assistant').pop();
+        if (lastAssistantMsg) {
+            lastAssistantMessage = lastAssistantMsg.content || '';
+            conversationHistory.push({ role: 'assistant', content: lastAssistantMessage });
+        }
+        
+        // 生成推荐问句
+        const suggestions = await getSuggestions(lastUserMessage, lastAssistantMessage);
+        uiCallbacks.showSuggestions(suggestions);
     }
 
     // 暴露公共接口
